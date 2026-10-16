@@ -19,17 +19,54 @@ Applet per Linux, scritto in Rust, che monitora uno o più siti/host e mostra lo
 - Un desktop con supporto a system tray via StatusNotifierItem (es. GNOME con estensione tray, KDE, Cinnamon, XFCE)
 - Il comando `ping` di sistema presente in `PATH` (per i controlli di tipo Ping)
 
-## Build
+## Installazione (consigliata)
+
+Lo script `install.sh` compila il progetto e installa l'applet come una vera applicazione del sistema:
+
+```bash
+./install.sh
+```
+
+Cosa fa, nello specifico:
+
+- Compila in release (`cargo build --release`)
+- Copia il binario in `~/.local/bin/server-monitor-tray`
+- Copia l'icona in `~/.local/share/icons/hicolor/128x128/apps/`
+- Crea un config di default in `~/.config/server-monitor-tray/watchdog.conf` (solo se non esiste già — non sovrascrive un config esistente)
+- Crea un file `.desktop` in `~/.local/share/applications/`, così l'app compare nel menu applicazioni con nome e icona propri
+- Copia lo stesso `.desktop` in `~/.config/autostart/`, così l'app parte automaticamente ad ogni login
+
+Dopo l'installazione:
+
+- Cerca **"Server Monitor Tray"** nel menu applicazioni per lanciarla manualmente, oppure
+- Fai logout/login (o riavvia) perché parta in autostart, oppure
+- Lanciala subito a mano con `~/.local/bin/server-monitor-tray ~/.config/server-monitor-tray/watchdog.conf`
+
+Per modificare i siti monitorati in seguito, usa il menu "Impostazioni..." dal click destro sull'icona in tray — non serve rieseguire `install.sh` a meno di aver aggiornato il codice.
+
+### Aggiornare dopo una modifica al codice
 
 ```bash
 cargo build --release
+cp target/release/watchdog ~/.local/bin/server-monitor-tray
 ```
 
-L'eseguibile sarà in `target/release/watchdog`.
+(oppure semplicemente rilancia `./install.sh`, che non toccherà il tuo config esistente)
 
-## Uso
+### Disinstallazione
 
 ```bash
+rm ~/.local/bin/server-monitor-tray
+rm ~/.local/share/icons/hicolor/128x128/apps/server-monitor-tray.png
+rm ~/.local/share/applications/server-monitor-tray.desktop
+rm ~/.config/autostart/server-monitor-tray.desktop
+rm -r ~/.config/server-monitor-tray   # rimuove anche il tuo config personalizzato
+```
+
+## Build manuale (senza installazione)
+
+```bash
+cargo build --release
 ./target/release/watchdog [percorso/al/config.conf]
 ```
 

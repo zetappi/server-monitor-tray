@@ -455,6 +455,17 @@ fn open_settings_window(
         note.style_context().add_class("dim-label");
         vbox.pack_start(&note, false, false, 0);
 
+        let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
+        vbox.pack_start(&separator, false, false, 4);
+
+        let credits = gtk::Label::new(None);
+        credits.set_markup(
+            "<small>Server Monitor Tray \u{2014} zetappi (marcozp@gmail.com) \u{2014} 2026\n\
+            <a href=\"https://www.mz-lab.eu\">www.mz-lab.eu</a></small>",
+        );
+        credits.set_halign(gtk::Align::Start);
+        vbox.pack_start(&credits, false, false, 0);
+
         let button_box = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         button_box.set_halign(gtk::Align::End);
         let cancel_button = gtk::Button::with_label("Annulla");

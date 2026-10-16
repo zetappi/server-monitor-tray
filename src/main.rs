@@ -227,7 +227,7 @@ impl Tray for WatchdogTray {
     }
 
     fn title(&self) -> String {
-        "Watchdog".into()
+        "Server Monitor Tray".into()
     }
 
     fn icon_pixmap(&self) -> Vec<Icon> {
@@ -260,7 +260,7 @@ impl Tray for WatchdogTray {
             ));
         }
         ToolTip {
-            title: "Watchdog".into(),
+            title: "Server Monitor Tray".into(),
             description: lines.join("\n"),
             ..Default::default()
         }
@@ -305,7 +305,7 @@ thread_local! {
 fn open_status_window(sites: Vec<Arc<SiteState>>) {
     glib::idle_add_once(move || {
         let window = gtk::Window::new(gtk::WindowType::Toplevel);
-        window.set_title("Watchdog - Stato siti");
+        window.set_title("Server Monitor Tray - Stato siti");
         window.set_default_size(360, 220);
         window.set_position(gtk::WindowPosition::CenterAlways);
 
@@ -353,7 +353,7 @@ fn open_settings_window(
 ) {
     glib::idle_add_once(move || {
         let window = gtk::Window::new(gtk::WindowType::Toplevel);
-        window.set_title("Watchdog - Impostazioni");
+        window.set_title("Server Monitor Tray - Impostazioni");
         window.set_default_size(520, 360);
         window.set_position(gtk::WindowPosition::CenterAlways);
 

@@ -1,0 +1,1 @@
+vorrei provare a scrivere un semplicissimo programma per linux, configurabile, per fare da watchdog a un sito controllando ogni x secondi se e' online

@@ -1,0 +1,9 @@
+site1_url = https://example.com
+site1_type = http
+site1_interval_secs = 10
+
+site2_url = example.com
+site2_type = ping
+site2_interval_secs = 15
+
+timeout_secs = 5

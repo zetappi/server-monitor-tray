@@ -4,6 +4,12 @@
 
 A Linux applet, written in Rust, that monitors one or more sites/hosts and shows their status (online/offline) via a system tray icon.
 
+## Screenshots
+
+| Online | Offline | Settings |
+|---|---|---|
+| ![Tray icon, online](docs/screenshots/tray-online.png) | ![Tray icon, offline](docs/screenshots/tray-offline.png) | ![Settings window](docs/screenshots/settings.png) |
+
 ## Features
 
 - Monitors multiple sites/hosts in parallel, each with its own check interval

@@ -300,10 +300,24 @@ impl Tray for WatchdogTray {
 thread_local! {
     static ICON_GREEN: Icon = load_icon(include_bytes!("../icon_green.png"));
     static ICON_RED: Icon = load_icon(include_bytes!("../icon_red.png"));
+    static STATUS_WINDOW: std::cell::RefCell<Option<gtk::Window>> = std::cell::RefCell::new(None);
 }
 
 fn open_status_window(sites: Vec<Arc<SiteState>>) {
     glib::idle_add_once(move || {
+        // Se la finestra di stato è già aperta, portala in primo piano invece di aprirne un'altra.
+        let already_open = STATUS_WINDOW.with(|w| {
+            if let Some(existing) = w.borrow().as_ref() {
+                existing.present();
+                true
+            } else {
+                false
+            }
+        });
+        if already_open {
+            return;
+        }
+
         let window = gtk::Window::new(gtk::WindowType::Toplevel);
         window.set_title("Server Monitor Tray - Stato siti");
         window.set_default_size(360, 220);
@@ -342,7 +356,18 @@ fn open_status_window(sites: Vec<Arc<SiteState>>) {
         }
 
         window.add(&list_box);
+
+        window.connect_destroy(|_| {
+            STATUS_WINDOW.with(|w| {
+                *w.borrow_mut() = None;
+            });
+        });
+
         window.show_all();
+
+        STATUS_WINDOW.with(|w| {
+            *w.borrow_mut() = Some(window);
+        });
     });
 }
 

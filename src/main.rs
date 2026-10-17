@@ -188,6 +188,22 @@ fn check_site(config: &SiteConfig, timeout_secs: u64) -> bool {
     }
 }
 
+fn notify_status_change(url: &str, is_online: bool) {
+    let (urgency, summary, body) = if is_online {
+        ("normal", "Site back online", format!("{url} is reachable again."))
+    } else {
+        ("critical", "Site unreachable", format!("{url} appears to be down."))
+    };
+
+    let _ = Command::new("notify-send")
+        .arg("--app-name=Server Monitor Tray")
+        .arg("--urgency")
+        .arg(urgency)
+        .arg(summary)
+        .arg(&body)
+        .spawn();
+}
+
 fn load_icon(bytes: &[u8]) -> Icon {
     let img = image::load_from_memory(bytes)
         .expect("icona embedded non valida")
@@ -599,29 +615,41 @@ fn main() {
         let site = site.clone();
         let handle = handle.clone();
         let timeout_secs = timeout_secs.clone();
-        thread::spawn(move || loop {
-            let timeout = timeout_secs.load(Ordering::Relaxed);
-            let is_online = check_site(&site.config, timeout);
-            let now = chrono::Local::now().format("%H:%M:%S");
+        thread::spawn(move || {
+            // None al primo giro: evita una notifica "tornato online" fasulla all'avvio.
+            let mut previous_online: Option<bool> = None;
 
-            if is_online {
-                println!(
-                    "[{now}] \x1b[32m\u{25cf}\x1b[0m ONLINE  [{}] {}",
-                    site.config.check_type.as_str(),
-                    site.config.url
-                );
-            } else {
-                println!(
-                    "[{now}] \x1b[31m\u{25cf}\x1b[0m OFFLINE [{}] {}",
-                    site.config.check_type.as_str(),
-                    site.config.url
-                );
+            loop {
+                let timeout = timeout_secs.load(Ordering::Relaxed);
+                let is_online = check_site(&site.config, timeout);
+                let now = chrono::Local::now().format("%H:%M:%S");
+
+                if is_online {
+                    println!(
+                        "[{now}] \x1b[32m\u{25cf}\x1b[0m ONLINE  [{}] {}",
+                        site.config.check_type.as_str(),
+                        site.config.url
+                    );
+                } else {
+                    println!(
+                        "[{now}] \x1b[31m\u{25cf}\x1b[0m OFFLINE [{}] {}",
+                        site.config.check_type.as_str(),
+                        site.config.url
+                    );
+                }
+
+                if let Some(prev) = previous_online {
+                    if prev != is_online {
+                        notify_status_change(&site.config.url, is_online);
+                    }
+                }
+                previous_online = Some(is_online);
+
+                site.online.store(is_online, Ordering::Relaxed);
+                handle.update(|_| {});
+
+                thread::sleep(Duration::from_secs(site.config.interval_secs));
             }
-
-            site.online.store(is_online, Ordering::Relaxed);
-            handle.update(|_| {});
-
-            thread::sleep(Duration::from_secs(site.config.interval_secs));
         });
     }
 

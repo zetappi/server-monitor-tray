@@ -26,6 +26,7 @@ A Linux applet, written in Rust, that monitors one or more sites/hosts and shows
 - GTK3 (development libraries): on Debian/Ubuntu `sudo apt install libgtk-3-dev`
 - A desktop with system tray support via StatusNotifierItem (e.g. GNOME with a tray extension, KDE, Cinnamon, XFCE)
 - The system `ping` command available in `PATH` (for Ping-type checks)
+- `notify-send` available in `PATH` (part of `libnotify-bin` on Debian/Ubuntu), for desktop popup notifications on status changes
 
 ## Installation (recommended)
 

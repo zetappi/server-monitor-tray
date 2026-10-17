@@ -279,7 +279,7 @@ impl Tray for WatchdogTray {
 
         vec![
             StandardItem {
-                label: "Impostazioni...".into(),
+                label: "Settings...".into(),
                 activate: Box::new(move |_| {
                     open_settings_window(config_path.clone(), sites.clone(), timeout_secs.clone());
                 }),
@@ -288,7 +288,7 @@ impl Tray for WatchdogTray {
             .into(),
             MenuItem::Separator,
             StandardItem {
-                label: "Esci".into(),
+                label: "Quit".into(),
                 activate: Box::new(|_| std::process::exit(0)),
                 ..Default::default()
             }
@@ -319,7 +319,7 @@ fn open_status_window(sites: Vec<Arc<SiteState>>) {
         }
 
         let window = gtk::Window::new(gtk::WindowType::Toplevel);
-        window.set_title("Server Monitor Tray - Stato siti");
+        window.set_title("Server Monitor Tray - Site Status");
         window.set_default_size(360, 220);
         window.set_position(gtk::WindowPosition::CenterAlways);
 
@@ -378,7 +378,7 @@ fn open_settings_window(
 ) {
     glib::idle_add_once(move || {
         let window = gtk::Window::new(gtk::WindowType::Toplevel);
-        window.set_title("Server Monitor Tray - Impostazioni");
+        window.set_title("Server Monitor Tray - Settings");
         window.set_default_size(520, 360);
         window.set_position(gtk::WindowPosition::CenterAlways);
 
@@ -388,7 +388,7 @@ fn open_settings_window(
         vbox.set_margin_top(12);
         vbox.set_margin_bottom(12);
 
-        let sites_label = gtk::Label::new(Some("Siti monitorati:"));
+        let sites_label = gtk::Label::new(Some("Monitored sites:"));
         sites_label.set_halign(gtk::Align::Start);
         vbox.pack_start(&sites_label, false, false, 0);
 
@@ -396,8 +396,8 @@ fn open_settings_window(
         let h_url = gtk::Label::new(Some("URL / Host"));
         h_url.set_hexpand(true);
         h_url.set_halign(gtk::Align::Start);
-        let h_type = gtk::Label::new(Some("Tipo"));
-        let h_interval = gtk::Label::new(Some("Intervallo (s)"));
+        let h_type = gtk::Label::new(Some("Type"));
+        let h_interval = gtk::Label::new(Some("Interval (s)"));
         header.pack_start(&h_url, true, true, 0);
         header.pack_start(&h_type, false, false, 0);
         header.pack_start(&h_interval, false, false, 0);
@@ -422,7 +422,7 @@ fn open_settings_window(
             let interval_spin = gtk::SpinButton::with_range(1.0, 86400.0, 1.0);
             interval_spin.set_value(interval_secs as f64);
 
-            let remove_button = gtk::Button::with_label("Rimuovi");
+            let remove_button = gtk::Button::with_label("Remove");
 
             row.pack_start(&entry, true, true, 0);
             row.pack_start(&type_combo, false, false, 0);
@@ -455,7 +455,7 @@ fn open_settings_window(
         scrolled.add(&*rows_box_rc);
         vbox.pack_start(&scrolled, true, true, 0);
 
-        let add_button = gtk::Button::with_label("+ Aggiungi sito");
+        let add_button = gtk::Button::with_label("+ Add site");
         vbox.pack_start(&add_button, false, false, 0);
 
         {
@@ -466,7 +466,7 @@ fn open_settings_window(
         }
 
         let timeout_box = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        let timeout_label = gtk::Label::new(Some("Timeout per ogni check (secondi):"));
+        let timeout_label = gtk::Label::new(Some("Timeout per check (seconds):"));
         let timeout_spin = gtk::SpinButton::with_range(1.0, 120.0, 1.0);
         timeout_spin.set_value(timeout_secs.load(Ordering::Relaxed) as f64);
         timeout_box.pack_start(&timeout_label, false, false, 0);
@@ -474,7 +474,7 @@ fn open_settings_window(
         vbox.pack_start(&timeout_box, false, false, 0);
 
         let note = gtk::Label::new(Some(
-            "Nota: aggiungere/rimuovere siti o cambiare tipo richiede il riavvio dell'applet.",
+            "Note: adding/removing sites or changing their type requires restarting the applet.",
         ));
         note.set_halign(gtk::Align::Start);
         note.style_context().add_class("dim-label");
@@ -493,8 +493,8 @@ fn open_settings_window(
 
         let button_box = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         button_box.set_halign(gtk::Align::End);
-        let cancel_button = gtk::Button::with_label("Annulla");
-        let save_button = gtk::Button::with_label("Salva");
+        let cancel_button = gtk::Button::with_label("Cancel");
+        let save_button = gtk::Button::with_label("Save");
         button_box.pack_start(&cancel_button, false, false, 0);
         button_box.pack_start(&save_button, false, false, 0);
         vbox.pack_start(&button_box, false, false, 0);

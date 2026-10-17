@@ -43,7 +43,7 @@ cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Server Monitor Tray
-Comment=Monitora siti/host via HTTP o ping con icona nella system tray
+Comment=Monitors sites/hosts via HTTP or ping with a system tray icon
 Exec=$BIN_DIR/$APP_NAME $CONFIG_DIR/watchdog.conf
 Icon=$APP_NAME
 Terminal=false

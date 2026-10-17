@@ -2,7 +2,7 @@
 
 # Server Monitor Tray
 
-A Linux applet, written in Rust, that monitors one or more sites/hosts and shows their status (online/offline) via a system tray icon.
+A lightweight, native Linux tray application, written in Rust, for keeping an eye on your websites and servers. It runs quietly in the background, checks each site on its own schedule via HTTP or ping, and turns the tray icon red — with a desktop popup — the moment something goes down, so you don't have to keep a browser tab open or wait for someone else to tell you your site is offline.
 
 ## Screenshots
 

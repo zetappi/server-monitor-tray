@@ -2,7 +2,7 @@
 
 # Server Monitor Tray
 
-Applet per Linux, scritto in Rust, che monitora uno o più siti/host e mostra lo stato (online/offline) tramite un'icona nella system tray.
+Un'applet nativa e leggera per Linux, scritta in Rust, per tenere d'occhio i tuoi siti e server. Gira silenziosamente in background, controlla ogni sito con il proprio intervallo via HTTP o ping, e fa diventare rossa l'icona in tray — con tanto di popup desktop — nel momento in cui qualcosa va giù, così non devi tenere una scheda del browser aperta né aspettare che sia qualcun altro ad avvisarti che il tuo sito è offline.
 
 ## Screenshot
 

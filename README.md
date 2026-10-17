@@ -1,78 +1,80 @@
+*[Versione italiana qui](README.it.md)*
+
 # Server Monitor Tray
 
-Applet per Linux, scritto in Rust, che monitora uno o più siti/host e mostra lo stato (online/offline) tramite un'icona nella system tray.
+A Linux applet, written in Rust, that monitors one or more sites/hosts and shows their status (online/offline) via a system tray icon.
 
-## Funzionalità
+## Features
 
-- Monitoraggio di più siti/host in parallelo, ciascuno con intervallo di controllo indipendente
-- Due tipi di controllo per sito: **HTTP** (richiesta GET) o **Ping** (ICMP via comando di sistema `ping`)
-- Icona verde quando tutti i siti sono raggiungibili, icona rossa lampeggiante se almeno uno è offline
-- Tooltip con l'elenco di tutti i siti e il loro stato
-- Click sinistro sull'icona: finestra con lo stato dettagliato di ogni sito
-- Click destro sull'icona: menu con "Impostazioni..." (aggiungi/rimuovi siti, cambia tipo di controllo e intervallo) ed "Esci"
-- Al salvataggio delle impostazioni l'applet si riavvia automaticamente applicando subito la nuova configurazione
+- Monitors multiple sites/hosts in parallel, each with its own check interval
+- Two check types per site: **HTTP** (GET request) or **Ping** (ICMP via the system `ping` command)
+- Green icon when all sites are reachable, blinking red icon if at least one is offline
+- Tooltip listing every site and its status
+- Left-click on the icon: window with the detailed status of each site
+- Right-click on the icon: menu with "Settings..." (add/remove sites, change check type and interval) and "Quit"
+- Saving the settings automatically restarts the applet, applying the new configuration immediately
 
-## Requisiti
+## Requirements
 
-- Rust (edizione 2024, toolchain stabile recente)
-- GTK3 (librerie di sviluppo): su Debian/Ubuntu `sudo apt install libgtk-3-dev`
-- Un desktop con supporto a system tray via StatusNotifierItem (es. GNOME con estensione tray, KDE, Cinnamon, XFCE)
-- Il comando `ping` di sistema presente in `PATH` (per i controlli di tipo Ping)
+- Rust (2024 edition, recent stable toolchain)
+- GTK3 (development libraries): on Debian/Ubuntu `sudo apt install libgtk-3-dev`
+- A desktop with system tray support via StatusNotifierItem (e.g. GNOME with a tray extension, KDE, Cinnamon, XFCE)
+- The system `ping` command available in `PATH` (for Ping-type checks)
 
-## Installazione (consigliata)
+## Installation (recommended)
 
-Lo script `install.sh` compila il progetto e installa l'applet come una vera applicazione del sistema:
+The `install.sh` script builds the project and installs the applet as a proper system application:
 
 ```bash
 ./install.sh
 ```
 
-Cosa fa, nello specifico:
+What it does, specifically:
 
-- Compila in release (`cargo build --release`)
-- Copia il binario in `~/.local/bin/server-monitor-tray`
-- Copia l'icona in `~/.local/share/icons/hicolor/128x128/apps/`
-- Crea un config di default in `~/.config/server-monitor-tray/watchdog.conf` (solo se non esiste già — non sovrascrive un config esistente)
-- Crea un file `.desktop` in `~/.local/share/applications/`, così l'app compare nel menu applicazioni con nome e icona propri
-- Copia lo stesso `.desktop` in `~/.config/autostart/`, così l'app parte automaticamente ad ogni login
+- Builds in release mode (`cargo build --release`)
+- Copies the binary to `~/.local/bin/server-monitor-tray`
+- Copies the icon to `~/.local/share/icons/hicolor/128x128/apps/`
+- Creates a default config at `~/.config/server-monitor-tray/watchdog.conf` (only if it doesn't already exist — an existing config is never overwritten)
+- Creates a `.desktop` file in `~/.local/share/applications/`, so the app shows up in the application menu with its own name and icon
+- Copies the same `.desktop` file to `~/.config/autostart/`, so the app starts automatically on every login
 
-Dopo l'installazione:
+After installation:
 
-- Cerca **"Server Monitor Tray"** nel menu applicazioni per lanciarla manualmente, oppure
-- Fai logout/login (o riavvia) perché parta in autostart, oppure
-- Lanciala subito a mano con `~/.local/bin/server-monitor-tray ~/.config/server-monitor-tray/watchdog.conf`
+- Search for **"Server Monitor Tray"** in the application menu to launch it manually, or
+- Log out/in (or reboot) to have it start via autostart, or
+- Launch it right away with `~/.local/bin/server-monitor-tray ~/.config/server-monitor-tray/watchdog.conf`
 
-Per modificare i siti monitorati in seguito, usa il menu "Impostazioni..." dal click destro sull'icona in tray — non serve rieseguire `install.sh` a meno di aver aggiornato il codice.
+To change the monitored sites later, use the "Settings..." menu from a right-click on the tray icon — no need to re-run `install.sh` unless you've updated the code.
 
-### Aggiornare dopo una modifica al codice
+### Updating after a code change
 
 ```bash
 cargo build --release
 cp target/release/watchdog ~/.local/bin/server-monitor-tray
 ```
 
-(oppure semplicemente rilancia `./install.sh`, che non toccherà il tuo config esistente)
+(or simply re-run `./install.sh`, which will not touch your existing config)
 
-### Disinstallazione
+### Uninstallation
 
 ```bash
 rm ~/.local/bin/server-monitor-tray
 rm ~/.local/share/icons/hicolor/128x128/apps/server-monitor-tray.png
 rm ~/.local/share/applications/server-monitor-tray.desktop
 rm ~/.config/autostart/server-monitor-tray.desktop
-rm -r ~/.config/server-monitor-tray   # rimuove anche il tuo config personalizzato
+rm -r ~/.config/server-monitor-tray   # also removes your custom config
 ```
 
-## Build manuale (senza installazione)
+## Manual build (without installation)
 
 ```bash
 cargo build --release
-./target/release/watchdog [percorso/al/config.conf]
+./target/release/watchdog [path/to/config.conf]
 ```
 
-Se non specificato, viene usato `watchdog.conf` nella directory corrente. Un file di esempio è fornito in [`watchdog.conf.example`](watchdog.conf.example) — copialo in `watchdog.conf` e personalizzalo.
+If not specified, `watchdog.conf` in the current directory is used. An example file is provided at [`watchdog.conf.example`](watchdog.conf.example) — copy it to `watchdog.conf` and customize it.
 
-## Formato del file di configurazione
+## Configuration file format
 
 ```ini
 site1_url = https://example.com
@@ -86,13 +88,13 @@ site2_interval_secs = 15
 timeout_secs = 5
 ```
 
-- `siteN_url`: URL (per `http`) o host/IP (per `ping`) del sito N. Lo schema `http(s)://` viene ignorato automaticamente nei controlli ping.
-- `siteN_type`: `http` oppure `ping`.
-- `siteN_interval_secs`: intervallo in secondi tra due controlli di quel sito.
-- `timeout_secs`: timeout (in secondi) applicato a tutti i controlli, modificabile anche a caldo dalle Impostazioni.
+- `siteN_url`: URL (for `http`) or host/IP (for `ping`) of site N. The `http(s)://` scheme is automatically stripped for ping checks.
+- `siteN_type`: `http` or `ping`.
+- `siteN_interval_secs`: interval in seconds between two checks of that site.
+- `timeout_secs`: timeout (in seconds) applied to all checks, also changeable live from Settings.
 
-Il file può essere modificato anche a mano; i numeri `N` devono essere consecutivi a partire da 1.
+The file can also be edited by hand; the `N` numbers must be consecutive starting from 1.
 
-## Licenza
+## License
 
 MIT

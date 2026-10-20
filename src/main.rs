@@ -404,6 +404,7 @@ thread_local! {
     static ICON_RED: Icon = load_icon(include_bytes!("../icon_red.png"));
     static ICON_BLUE: Icon = load_icon(include_bytes!("../icon_blue.png"));
     static STATUS_WINDOW: std::cell::RefCell<Option<gtk::Window>> = std::cell::RefCell::new(None);
+    static SETTINGS_WINDOW: std::cell::RefCell<Option<gtk::Window>> = std::cell::RefCell::new(None);
 }
 
 fn open_status_window(sites: Vec<Arc<SiteState>>, no_network: bool) {
@@ -497,6 +498,20 @@ fn open_settings_window(
     timeout_secs: Arc<AtomicU64>,
 ) {
     glib::idle_add_once(move || {
+        // Se la finestra Impostazioni è già aperta, portala in primo piano invece di aprirne un'altra.
+        let already_open = SETTINGS_WINDOW.with(|w| {
+            if let Some(existing) = w.borrow().as_ref() {
+                existing.deiconify();
+                existing.present_with_time(0);
+                true
+            } else {
+                false
+            }
+        });
+        if already_open {
+            return;
+        }
+
         let window = gtk::Window::new(gtk::WindowType::Toplevel);
         window.set_title("Server Monitor Tray - Settings");
         window.set_default_size(520, 360);
@@ -667,6 +682,12 @@ fn open_settings_window(
 
         window.add(&vbox);
 
+        window.connect_destroy(|_| {
+            SETTINGS_WINDOW.with(|w| {
+                *w.borrow_mut() = None;
+            });
+        });
+
         {
             let window = window.clone();
             cancel_button.connect_clicked(move |_| {
@@ -750,6 +771,11 @@ fn open_settings_window(
         }
 
         window.show_all();
+        window.present_with_time(0);
+
+        SETTINGS_WINDOW.with(|w| {
+            *w.borrow_mut() = Some(window);
+        });
     });
 }
 

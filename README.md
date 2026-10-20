@@ -92,13 +92,25 @@ site2_url = example.com
 site2_type = ping
 site2_interval_secs = 15
 
+decoy1_url = 1.1.1.1
+decoy2_url = 8.8.8.8
+
 timeout_secs = 5
 ```
 
 - `siteN_url`: URL (for `http`) or host/IP (for `ping`) of site N. The `http(s)://` scheme is automatically stripped for ping checks.
 - `siteN_type`: `http` or `ping`.
 - `siteN_interval_secs`: interval in seconds between two checks of that site.
+- `decoyN_url`: always-reachable host (pinged via ICMP) used as a network sanity check. If a monitored site fails all its retries, the decoy sites are pinged: if none of them responds either, it's treated as a general network outage (blinking blue icon) rather than that specific site being down. Defaults to `1.1.1.1` and `8.8.8.8` if omitted.
 - `timeout_secs`: timeout (in seconds) applied to all checks, also changeable live from Settings.
+
+### Tray icon states
+
+| Icon | Meaning |
+|---|---|
+| Solid green | All monitored sites are reachable |
+| Blinking red | At least one monitored site is down (and the network itself is up) |
+| Blinking blue | No decoy site is reachable — likely a general network/internet outage, not a problem with your sites |
 
 The file can also be edited by hand; the `N` numbers must be consecutive starting from 1.
 

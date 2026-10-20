@@ -92,13 +92,25 @@ site2_url = example.com
 site2_type = ping
 site2_interval_secs = 15
 
+decoy1_url = 1.1.1.1
+decoy2_url = 8.8.8.8
+
 timeout_secs = 5
 ```
 
 - `siteN_url`: URL (per `http`) o host/IP (per `ping`) del sito N. Lo schema `http(s)://` viene ignorato automaticamente nei controlli ping.
 - `siteN_type`: `http` oppure `ping`.
 - `siteN_interval_secs`: intervallo in secondi tra due controlli di quel sito.
+- `decoyN_url`: host sempre raggiungibile (pingato via ICMP) usato come verifica di sanità della rete. Se un sito monitorato fallisce tutti i retry, vengono pingati i siti civetta: se nessuno risponde, si considera un blackout di rete generale (icona blu lampeggiante) invece di un problema specifico di quel sito. Di default `1.1.1.1` e `8.8.8.8` se omesso.
 - `timeout_secs`: timeout (in secondi) applicato a tutti i controlli, modificabile anche a caldo dalle Impostazioni.
+
+### Stati dell'icona in tray
+
+| Icona | Significato |
+|---|---|
+| Verde fissa | Tutti i siti monitorati sono raggiungibili |
+| Rossa lampeggiante | Almeno un sito monitorato è giù (e la rete è presente) |
+| Blu lampeggiante | Nessun sito civetta è raggiungibile — probabile blackout di rete/internet generale, non un problema dei tuoi siti |
 
 Il file può essere modificato anche a mano; i numeri `N` devono essere consecutivi a partire da 1.
 

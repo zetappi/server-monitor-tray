@@ -6,4 +6,10 @@ site2_url = example.com
 site2_type = ping
 site2_interval_secs = 15
 
+# Decoy sites: always-reachable hosts (pinged via ICMP) used to tell apart
+# "this site is really down" from "I have no internet connection at all".
+# If omitted, 1.1.1.1 and 8.8.8.8 are used by default.
+decoy1_url = 1.1.1.1
+decoy2_url = 8.8.8.8
+
 timeout_secs = 5

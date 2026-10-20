@@ -44,7 +44,12 @@ struct SiteState {
 
 struct Config {
     sites: Vec<Arc<SiteState>>,
+    decoy_sites: Vec<String>,
     timeout_secs: u64,
+}
+
+fn default_decoy_sites() -> Vec<String> {
+    vec!["1.1.1.1".to_string(), "8.8.8.8".to_string()]
 }
 
 fn load_config(path: &str) -> Config {
@@ -57,6 +62,7 @@ fn load_config(path: &str) -> Config {
     }
 
     let mut raw_sites: std::collections::BTreeMap<u32, Raw> = std::collections::BTreeMap::new();
+    let mut decoy_sites: Vec<String> = Vec::new();
     let mut timeout_secs = 5u64;
     let mut default_interval_secs = 10u64;
 
@@ -78,6 +84,10 @@ fn load_config(path: &str) -> Config {
         if key == "interval_secs" {
             // chiave globale legacy: usata come default per i siti senza intervallo proprio
             default_interval_secs = value.parse().unwrap_or(default_interval_secs);
+            continue;
+        }
+        if key.starts_with("decoy") && key.ends_with("_url") {
+            decoy_sites.push(value.to_string());
             continue;
         }
 
@@ -133,10 +143,23 @@ fn load_config(path: &str) -> Config {
         }));
     }
 
-    Config { sites, timeout_secs }
+    if decoy_sites.is_empty() {
+        decoy_sites = default_decoy_sites();
+    }
+
+    Config {
+        sites,
+        decoy_sites,
+        timeout_secs,
+    }
 }
 
-fn save_config(path: &str, sites: &[(String, CheckType, u64)], timeout_secs: u64) {
+fn save_config(
+    path: &str,
+    sites: &[(String, CheckType, u64)],
+    decoy_sites: &[String],
+    timeout_secs: u64,
+) {
     let mut content = String::new();
     for (i, (url, check_type, interval_secs)) in sites.iter().enumerate() {
         let n = i + 1;
@@ -144,8 +167,22 @@ fn save_config(path: &str, sites: &[(String, CheckType, u64)], timeout_secs: u64
         content.push_str(&format!("site{n}_type = {}\n", check_type.as_str()));
         content.push_str(&format!("site{n}_interval_secs = {interval_secs}\n"));
     }
+    for (i, url) in decoy_sites.iter().enumerate() {
+        content.push_str(&format!("decoy{}_url = {url}\n", i + 1));
+    }
     content.push_str(&format!("timeout_secs = {timeout_secs}\n"));
     fs::write(path, content).expect("impossibile salvare il config file");
+}
+
+/// Verifica se la rete stessa è raggiungibile, pingando i siti civetta.
+/// Basta che uno risponda per considerare la rete presente.
+fn has_network(decoy_sites: &[String], timeout_secs: u64) -> bool {
+    if decoy_sites.is_empty() {
+        return true;
+    }
+    decoy_sites
+        .iter()
+        .any(|host| check_ping(host, timeout_secs))
 }
 
 fn check_http(url: &str, timeout_secs: u64) -> bool {
@@ -188,22 +225,36 @@ fn check_site_once(config: &SiteConfig, timeout_secs: u64) -> bool {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CheckOutcome {
+    Online,
+    Offline,
+    NoNetwork,
+}
+
 /// Un singolo esito negativo può essere un timeout momentaneo e non un vero down:
 /// prima di dichiarare il sito offline si riprova fino a RETRY_ATTEMPTS volte,
-/// con una breve pausa tra un tentativo e l'altro.
+/// con una breve pausa tra un tentativo e l'altro. Se anche dopo i retry il sito
+/// non risponde, si controllano i siti civetta: se nessuno risponde la rete stessa
+/// manca, e il sito non viene considerato davvero offline.
 const RETRY_ATTEMPTS: u32 = 3;
 const RETRY_DELAY: Duration = Duration::from_secs(3);
 
-fn check_site(config: &SiteConfig, timeout_secs: u64) -> bool {
+fn check_site(config: &SiteConfig, timeout_secs: u64, decoy_sites: &[String]) -> CheckOutcome {
     for attempt in 1..=RETRY_ATTEMPTS {
         if check_site_once(config, timeout_secs) {
-            return true;
+            return CheckOutcome::Online;
         }
         if attempt < RETRY_ATTEMPTS {
             thread::sleep(RETRY_DELAY);
         }
     }
-    false
+
+    if has_network(decoy_sites, timeout_secs) {
+        CheckOutcome::Offline
+    } else {
+        CheckOutcome::NoNetwork
+    }
 }
 
 fn notify_status_change(url: &str, is_online: bool) {
@@ -245,8 +296,10 @@ fn load_icon(bytes: &[u8]) -> Icon {
 struct WatchdogTray {
     config_path: String,
     sites: Vec<Arc<SiteState>>,
+    decoy_sites: Arc<Vec<String>>,
     timeout_secs: Arc<AtomicU64>,
     blink_on: Arc<Mutex<bool>>,
+    no_network: Arc<AtomicBool>,
 }
 
 impl WatchdogTray {
@@ -265,13 +318,17 @@ impl Tray for WatchdogTray {
     }
 
     fn icon_pixmap(&self) -> Vec<Icon> {
-        let show_red = if self.any_offline() {
-            *self.blink_on.lock().unwrap()
-        } else {
-            false
-        };
+        let blink_on = *self.blink_on.lock().unwrap();
 
-        if show_red {
+        if self.no_network.load(Ordering::Relaxed) {
+            return if blink_on {
+                vec![ICON_BLUE.with(|i| i.clone())]
+            } else {
+                vec![ICON_GREEN.with(|i| i.clone())]
+            };
+        }
+
+        if self.any_offline() && blink_on {
             vec![ICON_RED.with(|i| i.clone())]
         } else {
             vec![ICON_GREEN.with(|i| i.clone())]
@@ -280,6 +337,11 @@ impl Tray for WatchdogTray {
 
     fn tool_tip(&self) -> ToolTip {
         let mut lines = Vec::new();
+
+        if self.no_network.load(Ordering::Relaxed) {
+            lines.push("⚠ No network connection".to_string());
+        }
+
         for site in &self.sites {
             let status = if site.online.load(Ordering::Relaxed) {
                 "ONLINE"
@@ -301,7 +363,7 @@ impl Tray for WatchdogTray {
     }
 
     fn activate(&mut self, _x: i32, _y: i32) {
-        open_status_window(self.sites.clone());
+        open_status_window(self.sites.clone(), self.no_network.load(Ordering::Relaxed));
     }
 
     fn menu(&self) -> Vec<MenuItem<Self>> {
@@ -309,13 +371,19 @@ impl Tray for WatchdogTray {
 
         let config_path = self.config_path.clone();
         let sites = self.sites.clone();
+        let decoy_sites = self.decoy_sites.clone();
         let timeout_secs = self.timeout_secs.clone();
 
         vec![
             StandardItem {
                 label: "Settings...".into(),
                 activate: Box::new(move |_| {
-                    open_settings_window(config_path.clone(), sites.clone(), timeout_secs.clone());
+                    open_settings_window(
+                        config_path.clone(),
+                        sites.clone(),
+                        (*decoy_sites).clone(),
+                        timeout_secs.clone(),
+                    );
                 }),
                 ..Default::default()
             }
@@ -334,10 +402,11 @@ impl Tray for WatchdogTray {
 thread_local! {
     static ICON_GREEN: Icon = load_icon(include_bytes!("../icon_green.png"));
     static ICON_RED: Icon = load_icon(include_bytes!("../icon_red.png"));
+    static ICON_BLUE: Icon = load_icon(include_bytes!("../icon_blue.png"));
     static STATUS_WINDOW: std::cell::RefCell<Option<gtk::Window>> = std::cell::RefCell::new(None);
 }
 
-fn open_status_window(sites: Vec<Arc<SiteState>>) {
+fn open_status_window(sites: Vec<Arc<SiteState>>, no_network: bool) {
     glib::idle_add_once(move || {
         // Se la finestra di stato è già aperta, portala in primo piano invece di aprirne un'altra.
         let already_open = STATUS_WINDOW.with(|w| {
@@ -357,6 +426,19 @@ fn open_status_window(sites: Vec<Arc<SiteState>>) {
         window.set_title("Server Monitor Tray - Site Status");
         window.set_default_size(360, 220);
         window.set_position(gtk::WindowPosition::CenterAlways);
+
+        let vbox = gtk::Box::new(gtk::Orientation::Vertical, 4);
+
+        if no_network {
+            let warning = gtk::Label::new(None);
+            warning.set_markup(
+                "<span foreground='#2878dc'><b>\u{26a0} No network connection detected</b></span>",
+            );
+            warning.set_margin_start(8);
+            warning.set_margin_end(8);
+            warning.set_margin_top(8);
+            vbox.pack_start(&warning, false, false, 0);
+        }
 
         let list_box = gtk::ListBox::new();
 
@@ -390,7 +472,8 @@ fn open_status_window(sites: Vec<Arc<SiteState>>) {
             list_box.add(&row);
         }
 
-        window.add(&list_box);
+        vbox.pack_start(&list_box, true, true, 0);
+        window.add(&vbox);
 
         window.connect_destroy(|_| {
             STATUS_WINDOW.with(|w| {
@@ -410,6 +493,7 @@ fn open_status_window(sites: Vec<Arc<SiteState>>) {
 fn open_settings_window(
     config_path: String,
     sites: Vec<Arc<SiteState>>,
+    decoy_sites: Vec<String>,
     timeout_secs: Arc<AtomicU64>,
 ) {
     glib::idle_add_once(move || {
@@ -501,6 +585,52 @@ fn open_settings_window(
             });
         }
 
+        let decoy_label = gtk::Label::new(Some("Decoy sites (always-reachable hosts, used to tell \"site down\" from \"no network\"):"));
+        decoy_label.set_halign(gtk::Align::Start);
+        decoy_label.set_line_wrap(true);
+        vbox.pack_start(&decoy_label, false, false, 0);
+
+        let decoy_rows_box = gtk::Box::new(gtk::Orientation::Vertical, 4);
+        let decoy_rows_box_rc = Rc::new(decoy_rows_box);
+
+        fn add_decoy_row(rows_box: &gtk::Box, host: &str) {
+            let row = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+            let entry = gtk::Entry::new();
+            entry.set_text(host);
+            entry.set_hexpand(true);
+            let remove_button = gtk::Button::with_label("Remove");
+
+            row.pack_start(&entry, true, true, 0);
+            row.pack_start(&remove_button, false, false, 0);
+            rows_box.pack_start(&row, false, false, 0);
+            row.show_all();
+
+            let row_clone = row.clone();
+            remove_button.connect_clicked(move |_| {
+                if let Some(parent) = row_clone.parent() {
+                    if let Some(container) = parent.downcast_ref::<gtk::Box>() {
+                        container.remove(&row_clone);
+                    }
+                }
+            });
+        }
+
+        for host in &decoy_sites {
+            add_decoy_row(&decoy_rows_box_rc, host);
+        }
+
+        vbox.pack_start(&*decoy_rows_box_rc, false, false, 0);
+
+        let add_decoy_button = gtk::Button::with_label("+ Add decoy site");
+        vbox.pack_start(&add_decoy_button, false, false, 0);
+
+        {
+            let decoy_rows_box_rc = decoy_rows_box_rc.clone();
+            add_decoy_button.connect_clicked(move |_| {
+                add_decoy_row(&decoy_rows_box_rc, "1.1.1.1");
+            });
+        }
+
         let timeout_box = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         let timeout_label = gtk::Label::new(Some("Timeout per check (seconds):"));
         let timeout_spin = gtk::SpinButton::with_range(1.0, 120.0, 1.0);
@@ -548,6 +678,7 @@ fn open_settings_window(
             let window = window.clone();
             let config_path = config_path.clone();
             let rows_box_rc = rows_box_rc.clone();
+            let decoy_rows_box_rc = decoy_rows_box_rc.clone();
             let timeout_secs = timeout_secs.clone();
             save_button.connect_clicked(move |_| {
                 let mut new_sites: Vec<(String, CheckType, u64)> = Vec::new();
@@ -588,10 +719,30 @@ fn open_settings_window(
                     new_sites.push(("https://example.com".to_string(), CheckType::Http, 10));
                 }
 
+                let mut new_decoy_sites: Vec<String> = Vec::new();
+                for child in decoy_rows_box_rc.children() {
+                    let Some(row) = child.downcast_ref::<gtk::Box>() else {
+                        continue;
+                    };
+                    let Some(entry_w) = row.children().into_iter().next() else {
+                        continue;
+                    };
+                    let Some(entry) = entry_w.downcast_ref::<gtk::Entry>() else {
+                        continue;
+                    };
+                    let text = entry.text().to_string();
+                    if !text.trim().is_empty() {
+                        new_decoy_sites.push(text);
+                    }
+                }
+                if new_decoy_sites.is_empty() {
+                    new_decoy_sites = default_decoy_sites();
+                }
+
                 let new_timeout = timeout_spin.value() as u64;
                 timeout_secs.store(new_timeout, Ordering::Relaxed);
 
-                save_config(&config_path, &new_sites, new_timeout);
+                save_config(&config_path, &new_sites, &new_decoy_sites, new_timeout);
 
                 window.close();
                 restart_process(&config_path);
@@ -618,12 +769,16 @@ fn main() {
 
     let timeout_secs = Arc::new(AtomicU64::new(config.timeout_secs));
     let blink_on = Arc::new(Mutex::new(true));
+    let no_network = Arc::new(AtomicBool::new(false));
+    let decoy_sites = Arc::new(config.decoy_sites.clone());
 
     let tray = WatchdogTray {
         config_path: config_path.clone(),
         sites: config.sites.clone(),
+        decoy_sites: decoy_sites.clone(),
         timeout_secs: timeout_secs.clone(),
         blink_on: blink_on.clone(),
+        no_network: no_network.clone(),
     };
 
     let service = ksni::TrayService::new(tray);
@@ -635,45 +790,71 @@ fn main() {
         let site = site.clone();
         let handle = handle.clone();
         let timeout_secs = timeout_secs.clone();
+        let no_network = no_network.clone();
+        let decoy_sites = decoy_sites.clone();
         thread::spawn(move || {
             // None al primo giro: evita una notifica "tornato online" fasulla all'avvio.
             let mut previous_online: Option<bool> = None;
 
             loop {
                 let timeout = timeout_secs.load(Ordering::Relaxed);
-                let is_online = check_site(&site.config, timeout);
+                let outcome = check_site(&site.config, timeout, &decoy_sites);
                 let now = chrono::Local::now().format("%H:%M:%S");
 
-                if is_online {
-                    println!(
-                        "[{now}] \x1b[32m\u{25cf}\x1b[0m ONLINE  [{}] {}",
-                        site.config.check_type.as_str(),
-                        site.config.url
-                    );
-                } else {
-                    println!(
-                        "[{now}] \x1b[31m\u{25cf}\x1b[0m OFFLINE [{}] {}",
-                        site.config.check_type.as_str(),
-                        site.config.url
-                    );
-                }
+                match outcome {
+                    CheckOutcome::Online => {
+                        println!(
+                            "[{now}] \x1b[32m\u{25cf}\x1b[0m ONLINE  [{}] {}",
+                            site.config.check_type.as_str(),
+                            site.config.url
+                        );
+                        no_network.store(false, Ordering::Relaxed);
 
-                if let Some(prev) = previous_online {
-                    if prev != is_online {
-                        notify_status_change(&site.config.url, is_online);
+                        if let Some(prev) = previous_online {
+                            if !prev {
+                                notify_status_change(&site.config.url, true);
+                            }
+                        }
+                        previous_online = Some(true);
+                        site.online.store(true, Ordering::Relaxed);
+                        handle.update(|_| {});
+                    }
+                    CheckOutcome::Offline => {
+                        println!(
+                            "[{now}] \x1b[31m\u{25cf}\x1b[0m OFFLINE [{}] {}",
+                            site.config.check_type.as_str(),
+                            site.config.url
+                        );
+                        no_network.store(false, Ordering::Relaxed);
+
+                        if let Some(prev) = previous_online {
+                            if prev {
+                                notify_status_change(&site.config.url, false);
+                            }
+                        }
+                        previous_online = Some(false);
+                        site.online.store(false, Ordering::Relaxed);
+                        handle.update(|_| {});
+                    }
+                    CheckOutcome::NoNetwork => {
+                        println!(
+                            "[{now}] \x1b[34m\u{25cf}\x1b[0m NO NETWORK [{}] {}",
+                            site.config.check_type.as_str(),
+                            site.config.url
+                        );
+                        // Senza rete non possiamo sapere se il sito sia davvero giù:
+                        // non tocchiamo previous_online/site.online, niente notifiche false.
+                        no_network.store(true, Ordering::Relaxed);
+                        handle.update(|_| {});
                     }
                 }
-                previous_online = Some(is_online);
-
-                site.online.store(is_online, Ordering::Relaxed);
-                handle.update(|_| {});
 
                 thread::sleep(Duration::from_secs(site.config.interval_secs));
             }
         });
     }
 
-    // Thread di lampeggio: alterna rosso/verde ogni 500ms se c'e' almeno un sito offline.
+    // Thread di lampeggio: alterna rosso/blu ogni 500ms, a seconda dello stato.
     {
         let handle = handle.clone();
         thread::spawn(move || loop {

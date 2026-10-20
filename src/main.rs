@@ -181,11 +181,29 @@ fn check_ping(host: &str, timeout_secs: u64) -> bool {
         .unwrap_or(false)
 }
 
-fn check_site(config: &SiteConfig, timeout_secs: u64) -> bool {
+fn check_site_once(config: &SiteConfig, timeout_secs: u64) -> bool {
     match config.check_type {
         CheckType::Http => check_http(&config.url, timeout_secs),
         CheckType::Ping => check_ping(&config.url, timeout_secs),
     }
+}
+
+/// Un singolo esito negativo può essere un timeout momentaneo e non un vero down:
+/// prima di dichiarare il sito offline si riprova fino a RETRY_ATTEMPTS volte,
+/// con una breve pausa tra un tentativo e l'altro.
+const RETRY_ATTEMPTS: u32 = 3;
+const RETRY_DELAY: Duration = Duration::from_secs(3);
+
+fn check_site(config: &SiteConfig, timeout_secs: u64) -> bool {
+    for attempt in 1..=RETRY_ATTEMPTS {
+        if check_site_once(config, timeout_secs) {
+            return true;
+        }
+        if attempt < RETRY_ATTEMPTS {
+            thread::sleep(RETRY_DELAY);
+        }
+    }
+    false
 }
 
 fn notify_status_change(url: &str, is_online: bool) {
@@ -324,7 +342,8 @@ fn open_status_window(sites: Vec<Arc<SiteState>>) {
         // Se la finestra di stato è già aperta, portala in primo piano invece di aprirne un'altra.
         let already_open = STATUS_WINDOW.with(|w| {
             if let Some(existing) = w.borrow().as_ref() {
-                existing.present();
+                existing.deiconify();
+                existing.present_with_time(0);
                 true
             } else {
                 false
@@ -380,6 +399,7 @@ fn open_status_window(sites: Vec<Arc<SiteState>>) {
         });
 
         window.show_all();
+        window.present_with_time(0);
 
         STATUS_WINDOW.with(|w| {
             *w.borrow_mut() = Some(window);

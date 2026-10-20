@@ -257,17 +257,24 @@ fn check_site(config: &SiteConfig, timeout_secs: u64, decoy_sites: &[String]) ->
     }
 }
 
+/// Durata del popup in millisecondi. Le notifiche "critical" ignorano questo
+/// valore su molti demoni (incluso Cinnamon) e restano finché non vengono chiuse
+/// a mano: si usa quindi "normal" su entrambe per rispettare l'auto-chiusura.
+const NOTIFICATION_EXPIRE_MS: &str = "15000";
+
 fn notify_status_change(url: &str, is_online: bool) {
-    let (urgency, summary, body) = if is_online {
-        ("normal", "Site back online", format!("{url} is reachable again."))
+    let (summary, body) = if is_online {
+        ("Site back online", format!("{url} is reachable again."))
     } else {
-        ("critical", "Site unreachable", format!("{url} appears to be down."))
+        ("Site unreachable", format!("{url} appears to be down."))
     };
 
     let _ = Command::new("notify-send")
         .arg("--app-name=Server Monitor Tray")
         .arg("--urgency")
-        .arg(urgency)
+        .arg("normal")
+        .arg("--expire-time")
+        .arg(NOTIFICATION_EXPIRE_MS)
         .arg(summary)
         .arg(&body)
         .spawn();

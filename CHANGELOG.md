@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Notification popups now auto-close after 15 seconds**. Both "site down" and "site back online" notifications use normal urgency with a 15s expire time; previously "site down" used critical urgency, which several notification daemons (including Cinnamon's) keep on screen indefinitely regardless of the expire time.
 - **Fix**: opening Settings repeatedly no longer opens duplicate windows; the existing one is brought to the front instead (same fix already applied to the Site Status window).
 - **Decoy sites / network outage detection**: configurable always-reachable hosts (`decoyN_url`, pinged via ICMP; default `1.1.1.1` and `8.8.8.8`) are checked whenever a monitored site fails all its retries. If no decoy responds either, it's treated as a general network outage — the tray icon blinks blue instead of red, no false "site down" notification is sent, and the site's last known status is preserved until the network check succeeds again. Editable from Settings.
 - **Fix (false alarms)**: a single failed check no longer marks a site offline. Up to 3 attempts are made, 3 seconds apart, before a site is actually considered down — this absorbs brief timeouts/hiccups that aren't real outages.

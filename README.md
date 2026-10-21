@@ -14,10 +14,13 @@ A lightweight, native Linux tray application, written in Rust, for keeping an ey
 
 - Monitors multiple sites/hosts in parallel, each with its own check interval
 - Two check types per site: **HTTP** (GET request) or **Ping** (ICMP via the system `ping` command)
-- Green icon when all sites are reachable, blinking red icon if at least one is offline
+- **Retries before alerting**: a site isn't marked offline after a single failed check — up to 3 attempts, 3 seconds apart, are made first, absorbing brief timeouts that aren't real outages
+- **Decoy sites to catch network outages**: if a monitored site still fails after all retries, a set of always-reachable hosts (default `1.1.1.1` and `8.8.8.8`) is pinged. If none of them responds either, it's a general network/internet outage rather than that site being down — the tray icon blinks blue instead of red, and no false alert is sent
+- Green icon when all sites are reachable, blinking red if at least one is genuinely down, blinking blue if the network itself seems to be the problem
+- Desktop popup notification (via `notify-send`) whenever a site's status actually changes (down → up or up → down); popups auto-close after 15 seconds
 - Tooltip listing every site and its status
-- Left-click on the icon: window with the detailed status of each site
-- Right-click on the icon: menu with "Settings..." (add/remove sites, change check type and interval) and "Quit"
+- Left-click on the icon: window with the detailed status of each site (clicking again brings the existing window to the front instead of opening a duplicate)
+- Right-click on the icon: menu with "Settings..." (add/remove sites and decoy hosts, change check type, interval and timeout) and "Quit" — Settings also won't open duplicate windows
 - Saving the settings automatically restarts the applet, applying the new configuration immediately
 
 ## Requirements

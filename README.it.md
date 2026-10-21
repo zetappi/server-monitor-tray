@@ -14,10 +14,13 @@ Un'applet nativa e leggera per Linux, scritta in Rust, per tenere d'occhio i tuo
 
 - Monitoraggio di più siti/host in parallelo, ciascuno con intervallo di controllo indipendente
 - Due tipi di controllo per sito: **HTTP** (richiesta GET) o **Ping** (ICMP via comando di sistema `ping`)
-- Icona verde quando tutti i siti sono raggiungibili, icona rossa lampeggiante se almeno uno è offline
+- **Retry prima di allarmare**: un sito non viene marcato offline dopo un solo check fallito — vengono fatti fino a 3 tentativi, a distanza di 3 secondi, per assorbire timeout momentanei che non sono vere interruzioni
+- **Siti civetta per rilevare i blackout di rete**: se un sito monitorato fallisce anche dopo tutti i retry, vengono pingati alcuni host sempre raggiungibili (di default `1.1.1.1` e `8.8.8.8`). Se nessuno di questi risponde, si tratta di un blackout di rete/internet generale e non del sito che è davvero giù — l'icona in tray lampeggia blu invece che rossa, e non viene inviato nessun falso allarme
+- Icona verde quando tutti i siti sono raggiungibili, rossa lampeggiante se almeno uno è realmente giù, blu lampeggiante se il problema sembra essere la rete stessa
+- Notifica desktop popup (via `notify-send`) ogni volta che lo stato di un sito cambia davvero (giù → su o su → giù); i popup si chiudono automaticamente dopo 15 secondi
 - Tooltip con l'elenco di tutti i siti e il loro stato
-- Click sinistro sull'icona: finestra con lo stato dettagliato di ogni sito
-- Click destro sull'icona: menu con "Impostazioni..." (aggiungi/rimuovi siti, cambia tipo di controllo e intervallo) ed "Esci"
+- Click sinistro sull'icona: finestra con lo stato dettagliato di ogni sito (un secondo click riporta in primo piano la finestra esistente invece di aprirne una duplicata)
+- Click destro sull'icona: menu con "Impostazioni..." (aggiungi/rimuovi siti e host civetta, cambia tipo di controllo, intervallo e timeout) ed "Esci" — anche le Impostazioni non aprono finestre duplicate
 - Al salvataggio delle impostazioni l'applet si riavvia automaticamente applicando subito la nuova configurazione
 
 ## Requisiti
